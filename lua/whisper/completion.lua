@@ -75,11 +75,6 @@ end
 
 -- Request completion with debouncing
 function M.request_completion()
-	if not should_trigger_completion() then
-		ui.clear_completion()
-		return
-	end
-
 	-- Cancel previous timer
 	if M.debounce_timer then
 		M.debounce_timer:stop()
@@ -91,27 +86,34 @@ function M.request_completion()
 	-- Set up debounced request
 	M.debounce_timer = vim.defer_fn(function()
 		M.debounce_timer = nil
-		M.last_request_id = M.last_request_id + 1
-		local request_id = M.last_request_id
-
-		local context_data = get_context()
-		local filetype = vim.api.nvim_buf_get_option(vim.api.nvim_get_current_buf(), "filetype")
-
-		http.get_completion(context_data.context, context_data.line_before_cursor, filetype, function(completion, error)
-			-- Only process if this is the latest request
-			if request_id ~= M.last_request_id then
+		
+		-- Use vim.schedule to avoid fast event context issues
+		vim.schedule(function()
+			if not should_trigger_completion() then
+				ui.clear_completion()
 				return
 			end
 
-			if error then
-				vim.notify("Whisper completion error: " .. error, vim.log.levels.ERROR)
-				return
-			end
+			M.last_request_id = M.last_request_id + 1
+			local request_id = M.last_request_id
 
-			if completion and completion ~= "" then
-				-- Display completion
-				ui.show_completion(completion, context_data.cursor_row, context_data.cursor_col)
-			end
+			local context_data = get_context()
+			local filetype = vim.api.nvim_buf_get_option(vim.api.nvim_get_current_buf(), "filetype")
+
+			http.get_completion(context_data.context, context_data.line_before_cursor, filetype, function(completion, error)
+				if request_id ~= M.last_request_id then
+					return
+				end
+
+				if error then
+					vim.notify("Whisper completion error: " .. error, vim.log.levels.ERROR)
+					return
+				end
+
+				if completion and completion ~= "" then
+					ui.show_completion(completion, context_data.line_before_cursor, context_data.line_after_cursor)
+				end
+			end)
 		end)
 	end, opts.completion.debounce_ms)
 end
@@ -136,4 +138,3 @@ function M.has_completion()
 end
 
 return M
-

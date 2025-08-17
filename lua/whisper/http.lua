@@ -106,4 +106,3 @@ function M.test_connection(callback)
 end
 
 return M
-

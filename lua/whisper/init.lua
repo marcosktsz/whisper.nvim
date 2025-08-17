@@ -5,26 +5,20 @@ local http = require("whisper.http")
 
 local M = {}
 
--- Plugin state
 M.initialized = false
 M.autocmds = {}
 
--- Setup function called by user
 function M.setup(opts)
 	if M.initialized then
 		return
 	end
 
-	-- Setup configuration
 	config.setup(opts)
 
-	-- Initialize UI
 	ui.init()
 
-	-- Create autocommands for completion triggers
 	M.setup_autocmds()
 
-	-- Setup keybindings
 	M.setup_keybindings()
 
 	M.initialized = true
@@ -134,4 +128,3 @@ function M.enable()
 end
 
 return M
-

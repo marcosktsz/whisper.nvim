@@ -5,7 +5,7 @@ M.defaults = {
 	openrouter = {
 		api_key = nil, -- Must be set by user
 		base_url = "https://openrouter.ai/api/v1",
-		model = "meta-llama/llama-3.1-8b-instruct:free", -- Free model to start
+		model = "inception/mercury-coder", -- Free model to start
 		max_tokens = 50,
 		temperature = 0.1,
 	},
@@ -62,4 +62,3 @@ function M.get()
 end
 
 return M
-
