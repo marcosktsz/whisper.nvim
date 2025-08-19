@@ -1,25 +1,22 @@
 local M = {}
 
 M.defaults = {
-	-- OpenRouter API configuration
 	openrouter = {
-		api_key = nil, -- Must be set by user
+		api_key = nil,
 		base_url = "https://openrouter.ai/api/v1",
-		model = "inception/mercury-coder", -- Free model to start
+		model = "inception/mercury-coder",
 		max_tokens = 50,
 		temperature = 0.1,
 	},
 
-	-- Completion behavior
 	completion = {
-		debounce_ms = 75, -- Following Zed's pattern
+		debounce_ms = 75,
 		trigger_chars = { " ", ".", "(", ")", "{", "}", "[", "]", ",", ";" },
 		min_context_lines = 3,
 		max_context_lines = 10,
 		enabled_filetypes = { "lua", "python", "javascript", "typescript", "rust", "go", "java", "c", "cpp" },
 	},
 
-	-- UI configuration
 	ui = {
 		virtual_text = {
 			hl_group = "Comment",
@@ -27,7 +24,6 @@ M.defaults = {
 		},
 	},
 
-	-- Keybindings
 	keymaps = {
 		accept = "<Tab>",
 		reject = "<Esc>",
@@ -41,12 +37,10 @@ M.options = {}
 function M.setup(opts)
 	M.options = vim.tbl_deep_extend("force", M.defaults, opts or {})
 
-	-- Use environment variable if no API key provided
 	if not M.options.openrouter.api_key then
 		M.options.openrouter.api_key = vim.env.OPENROUTER_API_KEY
 	end
 
-	-- Validate required options
 	if not M.options.openrouter.api_key then
 		vim.notify(
 			"whisper.nvim: OpenRouter API key not provided. Set it in your config or OPENROUTER_API_KEY env var.",

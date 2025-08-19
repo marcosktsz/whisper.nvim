@@ -1,18 +1,14 @@
--- whisper.nvim - AI completion plugin for Neovim
--- Main plugin entry point
 
 if vim.g.loaded_whisper then
 	return
 end
 vim.g.loaded_whisper = 1
 
--- Check for required dependencies
 if not pcall(require, "plenary") then
 	vim.notify("whisper.nvim requires plenary.nvim", vim.log.levels.ERROR)
 	return
 end
 
--- Create user commands
 vim.api.nvim_create_user_command("WhisperComplete", function()
 	require("whisper").complete()
 end, { desc = "Manually trigger whisper completion" })

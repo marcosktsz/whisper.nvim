@@ -1,45 +1,46 @@
 local config = require("whisper.config")
+local prompts = require("whisper.prompts")
 
 local M = {}
 
--- Check if plenary is available
 local has_plenary, plenary = pcall(require, "plenary.curl")
 if not has_plenary then
 	error("whisper.nvim requires plenary.nvim. Please install it.")
 end
 
--- Create completion request payload
-local function create_completion_request(context, cursor_line, file_type)
+local function create_completion_request(context_before, context_after, file_type)
 	local opts = config.get()
 
-	local prompt = string.format(
-		[[You are an AI coding assistant. Complete the code based on the context.
+	local system_prompt = prompts.create_system_prompt()
+	local few_shots = prompts.create_few_shot_examples()
+	local user_input = prompts.create_user_input(context_before, context_after, file_type)
 
-File type: %s
-Context:
-%s
+	local messages = {
+		{
+			role = "system",
+			content = system_prompt,
+		},
+	}
 
-Complete the current line after the cursor. Provide only the completion text, no explanations.]],
-		file_type or "text",
-		context
-	)
+	for _, example in ipairs(few_shots) do
+		table.insert(messages, example)
+	end
+
+	table.insert(messages, {
+		role = "user",
+		content = user_input,
+	})
 
 	return {
 		model = opts.openrouter.model,
-		messages = {
-			{
-				role = "user",
-				content = prompt,
-			},
-		},
+		messages = messages,
 		max_tokens = opts.openrouter.max_tokens,
 		temperature = opts.openrouter.temperature,
-		stream = false, -- Start with non-streaming for simplicity
+		stream = false,
 	}
 end
 
--- Make async request to OpenRouter
-function M.get_completion(context, cursor_line, file_type, callback)
+function M.get_completion(context_before, context_after, file_type, callback)
 	local opts = config.get()
 
 	if not opts.openrouter.api_key then
@@ -47,10 +48,9 @@ function M.get_completion(context, cursor_line, file_type, callback)
 		return
 	end
 
-	local payload = create_completion_request(context, cursor_line, file_type)
+	local payload = create_completion_request(context_before, context_after, file_type)
 	local url = opts.openrouter.base_url .. "/chat/completions"
 
-	-- Make async HTTP request using plenary
 	plenary.post(url, {
 		headers = {
 			["Authorization"] = "Bearer " .. opts.openrouter.api_key,
@@ -73,10 +73,19 @@ function M.get_completion(context, cursor_line, file_type, callback)
 			end
 
 			if data.choices and data.choices[1] and data.choices[1].message then
-				local completion = data.choices[1].message.content
-				-- Clean up the completion
-				completion = completion:gsub("^%s+", ""):gsub("%s+$", "")
-				callback(completion, nil)
+				local content = data.choices[1].message.content
+				local completions = prompts.parse_completion_response(content)
+
+				if #completions > 0 then
+						local filtered_completion = prompts.filter_completion_text(completions[1], context_before, context_after)
+					if filtered_completion and filtered_completion ~= "" then
+						callback(filtered_completion, nil)
+					else
+						callback(nil, "Completion was filtered out due to context overlap")
+					end
+				else
+					callback(nil, "No valid completions found in response")
+				end
 			else
 				callback(nil, "No completion found in response")
 			end
@@ -87,7 +96,6 @@ function M.get_completion(context, cursor_line, file_type, callback)
 	})
 end
 
--- Test function for debugging
 function M.test_connection(callback)
 	local opts = config.get()
 
@@ -100,7 +108,11 @@ function M.test_connection(callback)
 		if error then
 			callback(false, error)
 		else
-			callback(true, "Connection successful: " .. (completion or ""))
+			local result = "Connection successful"
+			if completion and completion ~= "" then
+				result = result .. ": " .. completion
+			end
+			callback(true, result)
 		end
 	end)
 end
